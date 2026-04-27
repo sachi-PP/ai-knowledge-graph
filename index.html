@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 知识宇宙 · 3D星球版</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;font-family:'Noto Sans SC','PingFang SC',sans-serif;overflow:hidden;color:#fff;user-select:none}
+canvas{position:absolute;top:0;left:0}
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#header{position:absolute;top:0;left:0;right:0;padding:20px 32px;background:linear-gradient(to bottom,rgba(0,0,10,.9),transparent);display:flex;align-items:center;gap:16px;pointer-events:none}
+#header h1{font-size:24px;font-weight:900;background:linear-gradient(135deg,#ff6ec7,#ffd36e,#6ef0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px}
+#header p{font-size:12px;color:rgba(255,255,255,.5);letter-spacing:1px}
+#search-wrap{position:absolute;top:22px;right:340px;pointer-events:all}
+#search-input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:8px 16px;color:#fff;font-size:13px;width:200px;outline:none;backdrop-filter:blur(10px)}
+#search-input::placeholder{color:rgba(255,255,255,.4)}
+#search-input:focus{border-color:rgba(110,240,255,.6);box-shadow:0 0 12px rgba(110,240,255,.2)}
+#legend{position:absolute;bottom:24px;left:24px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(255,255,255,.6)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+#panel{position:fixed;top:0;right:0;width:320px;height:100vh;background:rgba(8,8,24,.95);backdrop-filter:blur(20px);border-left:1px solid rgba(255,255,255,.1);transform:translateX(100%);transition:transform .4s cubic-bezier(.16,1,.3,1);z-index:50;overflow-y:auto;pointer-events:all}
+#panel.open{transform:translateX(0)}
+#panel-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+#panel-close:hover{background:rgba(255,255,255,.2)}
+#panel-content{padding:24px 20px 40px}
+#panel-name{font-size:22px;font-weight:900;margin-bottom:4px;background:linear-gradient(135deg,#ff6ec7,#ffd36e,#6ef0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#panel-category{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:20px;letter-spacing:1px}
+.panel-section{margin-bottom:0;padding:16px 0}
+.panel-section+.panel-section{border-top:1px solid rgba(255,255,255,.08)}
+.panel-text{font-size:13px;line-height:1.8;color:rgba(255,255,255,.8)}
+#panel-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.chip{padding:4px 10px;border-radius:12px;font-size:11px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);cursor:pointer;transition:all .2s}
+.chip:hover{background:rgba(110,240,255,.15);border-color:rgba(110,240,255,.4);color:#6ef0ff}
+#hint{position:absolute;bottom:24px;right:340px;font-size:11px;color:rgba(255,255,255,.3);pointer-events:none;text-align:right}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<canvas id="main"></canvas>
+<div id="ui">
+  <div id="header">
+    <h1>✦ AI 知识宇宙</h1>
+    <p>3D 星球 · 点击节点探索</p>
+  </div>
+  <div id="search-wrap">
+    <input id="search-input" type="text" placeholder="🔍 搜索节点..." />
+  </div>
+  <div id="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#ff6ec7"></div>基础概念</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ffd36e"></div>架构模型</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#6ef0ff"></div>训练方法</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>技术工具</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>应用框架</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>公司机构</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f472b6"></div>前沿概念</div>
+  </div>
+  <div id="hint">拖拽旋转 · 滚轮缩放 · 点击探索</div>
+</div>
+<div id="panel">
+  <button id="panel-close">×</button>
+  <div id="panel-content">
+    <div id="panel-name"></div>
+    <div id="panel-category"></div>
+    <div id="panel-body"></div>
+    <div id="panel-chips"></div>
+  </div>
+</div>
+<script>
+
+// ═══════════════════════════════════════
+//  DATA: 100+ AI Knowledge Nodes
+// ═══════════════════════════════════════
+const CATEGORIES = {
+  basic:   { label:'基础概念', color:'#ff6ec7', glow:'rgba(255,110,199,0.4)' },
+  arch:    { label:'架构模型', color:'#ffd36e', glow:'rgba(255,211,110,0.4)' },
+  train:   { label:'训练方法', color:'#6ef0ff', glow:'rgba(110,240,255,0.4)' },
+  tech:    { label:'技术工具', color:'#a78bfa', glow:'rgba(167,139,250,0.4)' },
+  app:     { label:'应用框架', color:'#34d399', glow:'rgba(52,211,153,0.4)' },
+  company: { label:'公司机构', color:'#fb923c', glow:'rgba(251,146,60,0.4)' },
+  concept: { label:'前沿概念', color:'#f472b6', glow:'rgba(244,114,182,0.4)' },
+};
+
+// size: 3=large, 2=medium, 1=small
+const NODES_DATA = [
+  // ── 基础概念 ──
+  { id:'nn',       name:'神经网络',    cat:'basic', size:3,
+    granny:'就像人的大脑，由很多小神经元连接在一起，互相传递信号，最终学会认识东西。',
+    meme:'🧠 大脑的平替，但用电费而不是睡眠充电',
+    tech:'人工神经网络(ANN)是由多层神经元(感知机)组成的计算图，通过前向传播计算输出，反向传播更新权重，本质是对高维函数的参数化近似。' },
+  { id:'bp',       name:'反向传播',    cat:'basic', size:3,
+    granny:'老师批改作业后，告诉每道题错在哪，学生根据错误一步步改正。',
+    meme:'🔴 错了就往前甩锅，直到甩到第一层',
+    tech:'反向传播(Backpropagation)利用链式法则对损失函数关于每个参数求偏导，从输出层逐层向输入层传递梯度信号，配合优化器更新参数。时间复杂度O(参数量)。' },
+  { id:'gd',       name:'梯度下降',    cat:'basic', size:3,
+    granny:'下山时，每次朝最陡的方向走一小步，最终走到山谷最低处。',
+    meme:'⛰️ 人生就是不断往下走，但这次是好事',
+    tech:'梯度下降通过迭代更新 θ←θ-η∇L(θ) 最小化损失。变体包括SGD(随机)、Mini-batch、Adam(自适应矩估计)、AdaGrad、RMSProp等，Adam因其自适应学习率在深度学习中最为常用。' },
+  { id:'loss',     name:'损失函数',    cat:'basic', size:2,
+    granny:'考试打分，分数越低说明学得越差，我们要让分数尽量低。',
+    meme:'📉 越低越好，和KPI完全相反',
+    tech:'损失函数量化预测值与真实值的差异。分类常用交叉熵(Cross-Entropy)，回归常用MSE/MAE。损失景观的几何特性直接影响优化难度，平坦区域导致梯度消失。' },
+  { id:'activation',name:'激活函数',  cat:'basic', size:2,
+    granny:'神经元的开关，决定要不要把信号传出去，给网络加点"非线性"的魔法。',
+    meme:'🚦 ReLU：负数全杀，正数放行，就这',
+    tech:'激活函数引入非线性，使网络能逼近任意函数。常见：ReLU(max(0,x))、GELU(x·Φ(x))、Sigmoid、Tanh、Swish。Transformer主流用GELU/SiLU，解决了ReLU的dying neuron问题。' },
+  { id:'overfit',  name:'过拟合',      cat:'basic', size:2,
+    granny:'死记硬背了所有例题，但换道新题就不会了。',
+    meme:'📚 背题背到认识每只狗，但不认识猫',
+    tech:'过拟合指模型在训练集表现优异但泛化性差，本质是模型复杂度超过数据内在结构。缓解方法：Dropout、L1/L2正则、数据增强、Early Stopping、BatchNorm。' },
+  { id:'attention', name:'注意力机制',  cat:'basic', size:3,
+    granny:'读文章时，你会重点关注关键词，而不是每个字都同等重视。',
+    meme:'👀 模型也会划重点，就是贵了亿点点',
+    tech:'注意力机制计算 Attention(Q,K,V)=softmax(QK^T/√d_k)V，允许模型动态关注输入序列的不同位置。自注意力的计算复杂度为O(n²)，是Transformer的核心组件。' },
+  { id:'embedding', name:'Embedding',  cat:'basic', size:3,
+    granny:'把每个词翻译成一串数字，意思相近的词，数字也相近。',
+    meme:'📐 王-男+女=后，数学老师沉默了',
+    tech:'Embedding将离散符号映射到连续向量空间，使语义关系可用几何距离衡量。Word2Vec/GloVe是静态嵌入，Transformer的上下文嵌入是动态的，维度通常512-4096。' },
+  { id:'tokenize',  name:'分词/Tokenization', cat:'basic', size:2,
+    granny:'把句子切成一个个小片段，就像把面条切成一段段。',
+    meme:'✂️ BPE：把"不可能"切成"不"+"可"+"能"，或者"不可"+"能"，薛定谔的分词',
+    tech:'现代LLM使用BPE(字节对编码)或SentencePiece进行子词分词，词表大小通常32K-128K。GPT-4使用cl100k_base(100K词表)，分词效率直接影响序列长度和推理成本。' },
+  { id:'positional',name:'位置编码',   cat:'basic', size:2,
+    granny:'给每个词贴上座位号，让模型知道谁排第几。',
+    meme:'🪑 Transformer失忆症：不告诉它顺序，它真不知道谁先谁后',
+    tech:'Transformer无内置序列感，需注入位置信息。绝对位置编码(正弦/可学习)已被旋转位置编码RoPE和ALiBi取代，RoPE通过旋转矩阵编码相对位置，支持外推到更长上下文。' },
+  { id:'norm',      name:'归一化',     cat:'basic', size:1,
+    granny:'把所有同学的成绩调整到同一个范围，方便比较。',
+    meme:'📊 LayerNorm：我不管你有多优秀，统统标准化',
+    tech:'BatchNorm对batch维度归一化，LayerNorm对特征维度归一化，更适合变长序列。RMSNorm(LLaMA使用)去掉均值中心化，只做缩放，计算更高效，性能相当。' },
+
+  // ── 架构模型 ──
+  { id:'transformer',name:'Transformer',cat:'arch', size:3,
+    granny:'一种超厉害的"阅读机器"，能同时看整篇文章，理解每个词和其他词的关系。',
+    meme:'🤖 2017年一篇论文，让AI界集体失业又集体就业',
+    tech:'"Attention is All You Need"(2017)提出的编码器-解码器架构，核心是多头自注意力(MHA)和前馈网络(FFN)的交替堆叠，LayerNorm+残差连接保证训练稳定性，彻底取代RNN成为主流范式。' },
+  { id:'gpt',       name:'GPT系列',    cat:'arch', size:3,
+    granny:'OpenAI做的聊天机器人，从GPT-1到GPT-4越来越聪明，能写文章、编程序、回答问题。',
+    meme:'💬 GPT-1：我会写字。GPT-4：我能帮你写离职信，顺便帮你找下家',
+    tech:'GPT(生成式预训练Transformer)采用仅解码器架构，自回归语言建模预训练。GPT-3(175B参数)展示了涌现能力，GPT-4引入多模态和MoE推测，o1/o3系列加入链式思维推理。' },
+  { id:'claude',    name:'Claude系列', cat:'arch', size:3,
+    granny:'Anthropic公司做的AI助手，特别注重安全和诚实，不会乱说话。',
+    meme:'🎭 Claude：我有宪法，我有原则，我不会——好的我帮你写',
+    tech:'Claude基于Constitutional AI训练，使用RLHF+CAI对齐。Claude 3系列(Haiku/Sonnet/Opus)展示了优秀的长上下文理解(200K tokens)。Claude 3.5 Sonnet在代码和推理上超越GPT-4o。' },
+  { id:'gemini',    name:'Gemini',     cat:'arch', size:3,
+    granny:'Google做的AI，生来就会看图、听声音、读文字，是个多才多艺的学生。',
+    meme:'🌟 Google：我们有搜索引擎、有TPU、有数据，就是……差点意思',
+    tech:'Gemini是Google DeepMind原生多模态模型，支持文本/图像/音频/视频输入。Gemini Ultra使用MoE架构，1M token上下文窗口。Gemini 2.0引入实时多模态流式处理。' },
+  { id:'llama',     name:'LLaMA系列',  cat:'arch', size:3,
+    granny:'Meta开源的AI，让全世界的人都能免费用，就像把秘密配方公开了。',
+    meme:'🦙 扎克伯格：开源是美德。其他公司：好的好的（冷汗）',
+    tech:'LLaMA(Large Language Model Meta AI)系列开源模型，LLaMA 2(7B-70B)采用GQA、RoPE、RMSNorm。LLaMA 3.1(405B)性能接近GPT-4，推动了开源生态繁荣。' },
+  { id:'mistral',   name:'Mistral',    cat:'arch', size:2,
+    granny:'法国团队做的小而精的AI，用更少的参数达到更好的效果。',
+    meme:'🥐 法国人做AI：少即是多，效率才是浪漫',
+    tech:'Mistral 7B使用滑动窗口注意力(SWA)和GQA，效率超越LLaMA 2 13B。Mixtral 8x7B是首个广泛使用的开源MoE模型，激活参数仅12B但性能媲美34B密集模型。' },
+  { id:'deepseek',  name:'DeepSeek',   cat:'arch', size:3,
+    granny:'中国公司做的AI，又便宜又好用，让大家发现原来不用花那么多钱。',
+    meme:'🐋 DeepSeek：用1/10的钱做出9/10的效果，硅谷集体失眠',
+    tech:'DeepSeek-V2使用MLA(多头潜在注意力)压缩KV Cache，DeepSeek-V3(671B MoE)训练成本仅$6M。DeepSeek-R1通过纯RL(GRPO)训练出强推理能力，无需SFT冷启动。' },
+  { id:'qwen',      name:'Qwen/通义',  cat:'arch', size:2,
+    granny:'阿里巴巴做的AI，中文特别好，还能处理超长文章。',
+    meme:'🐼 Qwen：我不是最大的，但我是最能说中文的',
+    tech:'Qwen系列(0.5B-110B)由阿里云开源，Qwen2.5支持128K上下文，中英双语性能优异。Qwen-VL支持多模态，QwQ是推理专用版本，使用长链式思维。' },
+  { id:'rnn',       name:'RNN',        cat:'arch', size:2,
+    granny:'像人读书一样，一个字一个字读，记住前面读过的内容。',
+    meme:'📖 RNN：我记得，我记得，我……忘了',
+    tech:'循环神经网络(RNN)通过隐藏状态传递序列信息，但梯度消失/爆炸问题严重限制长程依赖学习。已被Transformer大幅取代，但在边缘设备和流式场景仍有应用。' },
+  { id:'lstm',      name:'LSTM',       cat:'arch', size:2,
+    granny:'改进版记忆机器，有个"记忆门"，能决定记住什么、忘掉什么。',
+    meme:'🚪 LSTM：我有遗忘门，所以我不会忘记有遗忘门',
+    tech:'长短期记忆网络(LSTM)通过输入门、遗忘门、输出门控制信息流，有效缓解梯度消失。GRU是简化版，参数更少。在序列长度<1000的任务上仍有竞争力。' },
+  { id:'cnn',       name:'CNN',        cat:'arch', size:2,
+    granny:'看图的专家，用小窗口扫描图片，找出各种特征，比如边缘、颜色、形状。',
+    meme:'🖼️ CNN：我不认识你，但我认识你脸上的每个像素',
+    tech:'卷积神经网络通过局部感受野和权重共享提取空间特征，池化层降采样。ResNet引入残差连接解决深层网络退化，ViT将图像分块后用Transformer处理，逐渐取代CNN主导地位。' },
+  { id:'gan',       name:'GAN',        cat:'arch', size:2,
+    granny:'生成器造假画，鉴别器识破假画，两个互相竞争，最后假画越来越逼真。',
+    meme:'🎨 GAN：这不是对抗，这是艺术',
+    tech:'生成对抗网络(GAN)由生成器G和判别器D博弈训练，G最小化D识别概率，D最大化区分能力。训练不稳定(模式崩溃)是主要挑战，已被扩散模型在图像生成上超越。' },
+  { id:'vae',       name:'VAE',        cat:'arch', size:2,
+    granny:'把图片压缩成一段密码，再从密码还原出图片，还能生成新图片。',
+    meme:'🗜️ 压缩再解压，但解压出来的是新东西',
+    tech:'变分自编码器(VAE)学习数据的潜在分布，编码器输出均值和方差，重参数化技巧使梯度可传播，ELBO(证据下界)作为训练目标。是扩散模型潜在空间的基础组件。' },
+  { id:'diffusion', name:'扩散模型',   cat:'arch', size:3,
+    granny:'先把图片加噪声变成雪花，再一步步去掉噪声，还原出清晰的图片。',
+    meme:'❄️→🖼️ 从噪声里生成图，物理系学生：这不就是热力学第二定律的逆过程',
+    tech:'DDPM通过前向加噪(马尔可夫链)和反向去噪(U-Net/DiT预测噪声)学习数据分布。Stable Diffusion在潜在空间操作(LDM)大幅降低计算量。DDIM加速采样，CFG控制引导强度。' },
+  { id:'moe',       name:'MoE',        cat:'arch', size:3,
+    granny:'不是一个专家回答所有问题，而是根据问题类型，找最合适的专家来回答。',
+    meme:'👥 MoE：我不会，但我认识会的人',
+    tech:'混合专家(MoE)架构用路由网络为每个token选择Top-K个专家FFN，总参数量大但激活参数少。GPT-4/Mixtral/DeepSeek-V3均采用MoE，解决了密集模型扩展的计算瓶颈。' },
+  { id:'ssm',       name:'SSM/Mamba',  cat:'arch', size:2,
+    granny:'一种新型记忆机器，比老式的RNN更聪明，比Transformer更省电。',
+    meme:'🐍 Mamba：我不用注意力机制，但我注意力很好',
+    tech:'状态空间模型(SSM)用连续时间动力系统建模序列，Mamba引入选择性状态空间机制，实现O(n)复杂度的长序列建模。在某些任务上与Transformer持平，推理更高效。' },
+  { id:'palm',      name:'PaLM/T5',    cat:'arch', size:1,
+    granny:'Google早期的大语言模型，为后来的Gemini打下基础。',
+    meme:'🌴 PaLM：我是Gemini他爸',
+    tech:'PaLM(540B)展示了大规模语言模型的涌现能力，使用Pathways多任务训练。T5将所有NLP任务统一为文本到文本格式，FLAN-T5通过指令微调大幅提升零样本能力。' },
+  { id:'yi',        name:'Yi/零一万物',cat:'arch', size:1,
+    granny:'李开复创业做的AI，中英文都很厉害。',
+    meme:'🧑‍💻 李开复：做AI我是认真的',
+    tech:'Yi系列(6B/34B)由零一万物开源，基于LLaMA架构改进，Yi-34B在多个基准上超越LLaMA 2 70B。Yi-VL支持多模态，Yi-1.5进一步提升代码和数学能力。' },
+  { id:'falcon',    name:'Falcon/Bloom',cat:'arch', size:1,
+    granny:'阿联酋和欧洲研究机构做的开源AI，证明不只美国能做大模型。',
+    meme:'🌍 Bloom：多语言大模型，但法语太多了',
+    tech:'Falcon(40B/180B)由TII开源，使用多查询注意力(MQA)提升推理速度。BLOOM(176B)由BigScience联盟训练，支持46种语言，是最早的大规模多语言开源模型之一。' },
+
+  // ── 训练方法 ──
+  { id:'supervised', name:'监督学习',  cat:'train', size:3,
+    granny:'给AI看很多有答案的例题，让它学会举一反三。',
+    meme:'📝 监督学习：有答案的考试，刷题刷到吐',
+    tech:'监督学习从有标签数据{(x_i,y_i)}学习映射f:X→Y，最小化经验风险。深度学习中的预训练+微调范式本质是在大规模无监督预训练基础上进行监督微调(SFT)。' },
+  { id:'unsupervised',name:'无监督学习',cat:'train', size:2,
+    granny:'给AI看大量没有答案的资料，让它自己发现规律。',
+    meme:'🔍 无监督：把一堆乐高扔给AI，让它自己拼',
+    tech:'无监督学习从无标签数据发现结构，包括聚类(K-means/DBSCAN)、降维(PCA/t-SNE/UMAP)、生成模型(VAE/GAN/扩散)。LLM的预训练本质是自监督学习(下一词预测)。' },
+  { id:'rl',         name:'强化学习RL', cat:'train', size:3,
+    granny:'像训狗一样，做对了给奖励，做错了给惩罚，AI慢慢学会什么该做什么不该做。',
+    meme:'🎮 RL：AI玩游戏玩到世界第一，但不知道现实世界怎么走路',
+    tech:'强化学习通过智能体与环境交互(状态S、动作A、奖励R、转移P)学习策略π。AlphaGo/AlphaFold使用RL，LLM对齐中RL用于优化人类偏好，PPO是最主流的策略优化算法。' },
+  { id:'rlhf',       name:'RLHF',      cat:'train', size:3,
+    granny:'先让AI生成很多回答，人类评选最好的，再用这些评选结果训练AI更听话。',
+    meme:'👨‍⚖️ 人类：这个好，那个不好。AI：好的爸爸',
+    tech:'人类反馈强化学习(RLHF)三步：SFT→奖励模型(RM)训练→PPO优化策略。InstructGPT/ChatGPT首次大规模应用，解决了语言模型与人类意图的对齐问题，但人工标注成本高。' },
+  { id:'ppo',        name:'PPO',       cat:'train', size:2,
+    granny:'一种让AI学习的方法，每次只改一点点，不让它走偏太远。',
+    meme:'⚖️ PPO：稳健的老实人，不激进，但靠谱',
+    tech:'近端策略优化(PPO)通过裁剪目标函数限制策略更新幅度，L_CLIP=E[min(r_t·A_t, clip(r_t,1-ε,1+ε)·A_t)]，避免策略崩溃。是RLHF中最广泛使用的算法，但计算开销大。' },
+  { id:'dpo',        name:'DPO',       cat:'train', size:2,
+    granny:'不用奖励模型这个中间人，直接从人类好坏比较中学习。',
+    meme:'🔪 DPO：把奖励模型裁了，自己上',
+    tech:'直接偏好优化(DPO)将RLHF的RL阶段转化为监督学习，直接优化偏好对(y_w,y_l)的对数概率比，无需显式奖励模型和复杂的RL训练循环，实现更稳定高效的对齐。' },
+  { id:'sft',        name:'SFT',       cat:'train', size:2,
+    granny:'用精选的高质量对话数据，教AI怎么好好说话。',
+    meme:'📚 SFT：上岗培训，把野生AI驯化成职场人',
+    tech:'监督微调(SFT)是RLHF第一阶段，在高质量指令-回答对上进行标准语言建模训练，使预训练模型具备对话和指令跟随能力。数据质量远比数量重要，1K精选数据可超越100K噪声数据。' },
+  { id:'grpo',       name:'GRPO',      cat:'train', size:2,
+    granny:'一种更省钱的训练方法，不需要单独的评判员，自己生成多个答案互相比较。',
+    meme:'🏆 GRPO：自己出题自己批改，但确实管用',
+    tech:'组相对策略优化(GRPO)是PPO的变体，通过同一问题的多个采样输出计算组内相对奖励，去掉了价值函数网络(Critic)，降低显存需求。DeepSeek-R1用GRPO实现纯RL推理训练。' },
+  { id:'pretrain',   name:'预训练',    cat:'train', size:2,
+    granny:'先让AI读遍互联网上所有的书和文章，积累基础知识。',
+    meme:'📖 预训练：把整个互联网背一遍，然后才开始上班',
+    tech:'预训练在大规模无标签语料上进行自监督学习(CLM/MLM)，使模型获得通用语言理解能力。GPT-4预训练语料估计超过13T tokens，是下游任务性能的基础。' },
+  { id:'finetune',   name:'微调',      cat:'train', size:2,
+    granny:'在已经很聪明的AI基础上，针对特定任务再专门训练一下。',
+    meme:'🎯 微调：全才学了专才的技能，但没忘掉全才的本事',
+    tech:'微调在预训练模型基础上针对特定任务/领域进行继续训练，更新全部或部分参数。全参数微调成本高，参数高效微调(PEFT)方法如LoRA/Adapter只更新少量参数，大幅降低成本。' },
+  { id:'lora',       name:'LoRA',      cat:'train', size:3,
+    granny:'只改动AI大脑的一小部分，就能让它学会新技能，省钱省时间。',
+    meme:'💊 LoRA：打个补丁，不用换整台电脑',
+    tech:'低秩适配(LoRA)将权重更新分解为低秩矩阵乘积ΔW=BA(r<<d)，只训练A、B矩阵，可训练参数减少99%+。QLoRA结合4-bit量化，使单卡微调65B模型成为可能，是开源社区最广泛使用的微调方法。' },
+  { id:'qlora',      name:'QLoRA',     cat:'train', size:2,
+    granny:'LoRA的升级版，把AI压缩得更小，普通电脑也能训练大模型。',
+    meme:'💻 QLoRA：消费级显卡也能微调大模型，显卡厂商沉默了',
+    tech:'QLoRA(量化LoRA)使用NF4(4-bit NormalFloat)量化基础模型，结合双重量化和分页优化器，在单卡24GB GPU上实现65B模型微调，内存效率提升10x+，性能损失极小。' },
+  { id:'scaling',    name:'Scaling Law', cat:'train', size:3,
+    granny:'AI越大、数据越多、算力越强，就越聪明，而且有规律可循。',
+    meme:'📈 Scaling Law：只要钱够多，AI就能更聪明，投资人哭了',
+    tech:'Kaplan等人(2020)发现LLM性能与模型参数N、数据量D、计算量C呈幂律关系。Chinchilla法则(2022)指出最优训练：D≈20N tokens。但涌现能力表明Scaling Law有非线性跃迁。' },
+
+  // ── 技术工具 ──
+  { id:'rag',        name:'RAG',       cat:'tech', size:3,
+    granny:'AI回答问题前，先去图书馆查一查资料，再根据查到的内容回答，不靠死记硬背。',
+    meme:'📚 RAG：开卷考试的AI，但它的书是整个互联网',
+    tech:'检索增强生成(RAG)通过向量检索从外部知识库获取相关文档，拼接到上下文后生成回答，解决了LLM知识截止和幻觉问题。核心组件：嵌入模型+向量数据库+重排序器+生成器。' },
+  { id:'agentic_rag',name:'Agentic RAG',cat:'tech', size:2,
+    granny:'更聪明的查资料方式，AI会主动决定查什么、查几次，直到找到满意答案。',
+    meme:'🕵️ Agentic RAG：不只是查资料，是AI自己当侦探',
+    tech:'Agentic RAG让LLM主动规划检索策略，支持多跳推理、自我反思和迭代优化。包括Query Decomposition、Self-RAG(自我评估)、CRAG(修正RAG)等变体，显著提升复杂问答质量。' },
+  { id:'graphrag',   name:'GraphRAG',  cat:'tech', size:2,
+    granny:'把知识做成一张关系网络图，查资料时能顺着关系找到更多相关信息。',
+    meme:'🕸️ GraphRAG：知识图谱+RAG，查资料也要讲关系',
+    tech:'GraphRAG(微软)将文档构建为知识图谱，支持基于图结构的社区摘要和全局查询。相比向量RAG，在需要跨文档推理和全局理解的任务上性能显著更好，但构建成本高。' },
+  { id:'vectordb',   name:'向量数据库', cat:'tech', size:2,
+    granny:'专门存储AI理解的"数字语言"，能快速找到意思相近的内容。',
+    meme:'🗄️ 向量数据库：相亲软件，但匹配的是语义',
+    tech:'向量数据库(Pinecone/Weaviate/Milvus/Qdrant/Chroma)支持高维向量的近似最近邻搜索(ANN)，使用HNSW/IVF等索引结构，是RAG系统的核心存储组件，支持十亿级向量检索。' },
+  { id:'quantize',   name:'量化',      cat:'tech', size:2,
+    granny:'把AI的"大脑参数"从精确小数变成粗略整数，占用空间更小，速度更快。',
+    meme:'📦 量化：把4K画质压成720P，但AI说看不出区别',
+    tech:'模型量化将FP32/BF16权重压缩为INT8/INT4/INT2，减少显存占用和推理延迟。GPTQ(训练后量化)、AWQ(激活感知量化)、GGUF(llama.cpp格式)是主流方案，4-bit量化几乎无损。' },
+  { id:'distill',    name:'知识蒸馏',  cat:'tech', size:2,
+    granny:'让小模型学习大模型的"思维方式"，变得更聪明，但体型还是小的。',
+    meme:'🫗 蒸馏：大模型的知识倒进小模型，像倒酒',
+    tech:'知识蒸馏让学生模型拟合教师模型的软标签(logits分布)而非硬标签，传递更丰富的知识。Hinton(2015)提出，DistilBERT保留97%性能但参数减少40%。DeepSeek-R1-Distill用R1蒸馏小模型。' },
+  { id:'flash_attn', name:'Flash Attention',cat:'tech', size:2,
+    granny:'让注意力计算变得又快又省内存的魔法技术。',
+    meme:'⚡ Flash Attention：同样的计算，但显存用量少了一个数量级',
+    tech:'Flash Attention通过IO感知算法重新排列注意力计算顺序，利用GPU SRAM避免HBM读写瓶颈，将注意力计算的显存复杂度从O(n²)降至O(n)，速度提升2-4x，是现代LLM训练的标配。' },
+  { id:'rope',       name:'RoPE',      cat:'tech', size:2,
+    granny:'一种给词语标记位置的方法，能让AI理解更长的文章。',
+    meme:'🌀 RoPE：旋转一下，位置信息就有了，数学真神奇',
+    tech:'旋转位置编码(RoPE)通过旋转矩阵将位置信息编码为注意力分数中的相对位置，支持长度外推。LLaMA/Qwen/DeepSeek均使用RoPE，配合YaRN/LongRoPE可将上下文窗口扩展到1M+。' },
+  { id:'kvcache',    name:'KV Cache',  cat:'tech', size:2,
+    granny:'AI对话时记住之前算过的内容，不用每次重新算，节省时间。',
+    meme:'💾 KV Cache：AI的备忘录，不用每次都从头想',
+    tech:'KV Cache缓存Transformer每层的Key-Value矩阵，避免自回归生成时的重复计算，将推理速度提升数十倍。GQA/MQA通过共享KV头减少Cache大小，MLA(DeepSeek)用低秩压缩进一步优化。' },
+  { id:'mcp',        name:'MCP',       cat:'tech', size:3,
+    granny:'一种让AI和各种工具对话的通用语言，就像USB接口，插上就能用。',
+    meme:'🔌 MCP：AI界的USB-C，终于统一接口了',
+    tech:'模型上下文协议(MCP)由Anthropic提出，定义LLM与外部工具/数据源交互的标准协议，支持Resources/Tools/Prompts三类能力。解决了各家AI工具生态碎片化问题，被广泛采用。' },
+
+  // ── 应用框架 ──
+  { id:'agent',      name:'AI Agent',  cat:'app', size:3,
+    granny:'不只是聊天的AI，能自己制定计划、使用工具、完成复杂任务的AI助手。',
+    meme:'🤖 Agent：AI终于不只是话痨了，开始干活了',
+    tech:'AI Agent通过感知-规划-行动循环自主完成任务，核心组件：LLM(大脑)+记忆(短期/长期)+工具(搜索/代码/API)+规划(ReAct/CoT)。是2024年最热门的AI应用范式。' },
+  { id:'multi_agent',name:'Multi-Agent',cat:'app', size:2,
+    granny:'多个AI一起合作，每个负责一部分，就像一个AI团队。',
+    meme:'👥 Multi-Agent：AI公司，有CEO有员工，就是工资都是电费',
+    tech:'多智能体系统中多个LLM Agent协作完成复杂任务，包括角色分工、通信协议、任务分解和结果整合。AutoGen/CrewAI/LangGraph是主流框架，Anthropic的多Agent研究推动了该领域发展。' },
+  { id:'react',      name:'ReAct',     cat:'app', size:2,
+    granny:'AI先想一想(推理)，再做一件事(行动)，看看结果，再想再做，循环往复。',
+    meme:'🔄 ReAct：思考-行动-观察，AI的番茄工作法',
+    tech:'ReAct(Reasoning+Acting)交替生成推理轨迹和动作，每步格式：Thought→Action→Observation，使LLM能利用外部工具解决复杂问题。比纯CoT更可靠，是Agent的基础范式。' },
+  { id:'langchain',  name:'LangChain', cat:'app', size:2,
+    granny:'搭建AI应用的工具箱，把各种AI能力像积木一样拼在一起。',
+    meme:'🧱 LangChain：AI界的乐高，但文档看不懂',
+    tech:'LangChain提供LLM应用开发的标准化组件：Chain/Agent/Memory/Retriever/Tool，支持主流LLM和向量数据库。LangGraph扩展了有状态多Agent工作流，是目前最广泛使用的LLM框架。' },
+  { id:'llamaindex',  name:'LlamaIndex',cat:'app', size:2,
+    granny:'专门帮AI连接和理解各种文档的工具，让AI能读懂你的资料库。',
+    meme:'📑 LlamaIndex：AI的文件管理员，比你整理得好多了',
+    tech:'LlamaIndex专注于数据索引和RAG管道，提供文档加载器、节点解析、索引构建和查询引擎。支持多模态文档、知识图谱和多步推理，与LangChain形成RAG开发的双雄格局。' },
+  { id:'cot',        name:'CoT',       cat:'app', size:3,
+    granny:'让AI一步一步把解题过程写出来，而不是直接给答案，这样答案更准确。',
+    meme:'📝 CoT：AI也要写解题步骤，不然扣分',
+    tech:'思维链(Chain-of-Thought)通过"Let\'s think step by step"提示激发LLM的逐步推理，显著提升数学/逻辑/代码任务性能。Zero-shot CoT无需示例，Few-shot CoT提供推理示例，是o1/R1的核心技术基础。' },
+  { id:'tot',        name:'ToT/GoT',   cat:'app', size:2,
+    granny:'AI不只走一条思路，而是同时探索多条路，选最好的那条。',
+    meme:'🌳 ToT：AI的多线程思考，但还是比不上人类的多线程摸鱼',
+    tech:'思维树(ToT)将推理过程建模为树搜索，LLM生成多个推理步骤并自我评估，BFS/DFS选择最优路径。思维图(GoT)进一步允许任意图结构推理，适合需要回溯和并行探索的复杂问题。' },
+  { id:'function_call',name:'Function Calling',cat:'app', size:2,
+    granny:'AI能调用外部工具和API，就像能使用手机里各种App的人。',
+    meme:'📱 Function Calling：AI终于会用手机了',
+    tech:'Function Calling允许LLM输出结构化的函数调用请求，由外部系统执行并返回结果。OpenAI率先标准化该接口，现已成为所有主流LLM的标配能力，是Tool Use的基础实现。' },
+  { id:'autogpt',    name:'AutoGPT',   cat:'app', size:1,
+    granny:'给AI一个目标，它自己规划步骤、使用工具，一直干到完成为止。',
+    meme:'🤖 AutoGPT：AI的自动驾驶，但有时候会迷路',
+    tech:'AutoGPT是早期自主Agent实现，通过循环调用GPT-4进行任务分解、工具使用和自我反思。虽然实用性有限，但开创了自主Agent研究方向，启发了后续BabyAGI/AgentGPT等项目。' },
+  { id:'hermes',     name:'Hermes Agent',cat:'app', size:2,
+    granny:'一种特别擅长使用工具的AI，能理解复杂的工具调用指令。',
+    meme:'🪄 Hermes：工具调用界的老司机',
+    tech:'Hermes是NousResearch针对工具使用和函数调用优化的模型系列，基于LLaMA/Mistral微调，使用XML格式的工具调用协议。在Agent任务和结构化输出上表现优异，是开源Agent的常用基座。' },
+
+  // ── 公司机构 ──
+  { id:'openai',     name:'OpenAI',    cat:'company', size:3,
+    granny:'做出ChatGPT的公司，让全世界都开始认识AI聊天机器人。',
+    meme:'💰 OpenAI：最初说要造福人类，现在造福股东',
+    tech:'OpenAI成立于2015年，GPT系列、DALL-E、Sora、Whisper、CLIP等产品定义了生成AI行业标准。ChatGPT(2022)是史上增长最快的消费应用，o1/o3系列开创了测试时计算扩展范式。' },
+  { id:'anthropic',  name:'Anthropic', cat:'company', size:3,
+    granny:'做出Claude的公司，特别注重AI安全，由OpenAI前员工创立。',
+    meme:'🔒 Anthropic：我们不只做AI，我们还研究AI会不会毁灭人类',
+    tech:'Anthropic由Dario/Daniela Amodei等前OpenAI团队创立，专注AI安全研究。提出Constitutional AI、RLHF改进方法，Claude系列在长上下文和代码方面领先，MCP协议推动Agent生态标准化。' },
+  { id:'google_ai',  name:'Google/DeepMind',cat:'company', size:3,
+    granny:'Google旗下的AI研究部门，发明了Transformer，做出了AlphaGo和Gemini。',
+    meme:'🔍 Google：发明了Transformer，然后被用Transformer做的公司威胁了',
+    tech:'Google DeepMind合并了Google Brain和DeepMind，拥有Transformer/BERT/T5/PaLM/Gemini等里程碑成果。AlphaFold解决蛋白质折叠，AlphaCode在竞赛编程中超越人类，TPU是AI训练的核心算力。' },
+  { id:'meta_ai',    name:'Meta AI',   cat:'company', size:2,
+    granny:'Facebook母公司做的AI，坚持开源，让全世界都能用上大模型。',
+    meme:'👍 Meta：开源是我的策略，不是我的慈善',
+    tech:'Meta AI Research发布LLaMA系列开源模型，推动了开源LLM生态。FAIR(基础AI研究)产出了PyTorch、Segment Anything、ImageBind等基础设施。Yann LeCun坚持认为LLM不足以实现AGI。' },
+  { id:'mistral_ai', name:'Mistral AI',cat:'company', size:1,
+    granny:'法国AI公司，做出了效率极高的小模型，证明欧洲也能做顶级AI。',
+    meme:'🥐 Mistral：法国人做AI，效率高还有腔调',
+    tech:'Mistral AI由前DeepMind/Meta研究员创立，Mistral 7B/Mixtral 8x7B展示了参数效率的极致。Le Chat是其对话产品，Mistral Large与GPT-4竞争，代表欧洲AI主权的重要力量。' },
+  { id:'xai',        name:'xAI/Grok',  cat:'company', size:1,
+    granny:'马斯克创立的AI公司，做出了Grok，集成在X(推特)上。',
+    meme:'🚀 马斯克：OpenAI不安全，我来做个更不安全的',
+    tech:'xAI由Elon Musk创立，Grok基于Transformer架构，声称具有"反叛精神"。Grok-1.5/2集成于X平台，可访问实时推文数据。xAI获得大量NVIDIA GPU资源，Colossus超算集群规模领先。' },
+  { id:'baidu_ai',   name:'百度/文心', cat:'company', size:2,
+    granny:'中国最大的搜索引擎公司，做出了文心一言，是国内最早的大模型之一。',
+    meme:'🔴 百度：搜索引擎老大，AI新生，压力有点大',
+    tech:'百度文心大模型(ERNIE)系列从预训练语言模型发展为多模态大模型，文心一言(ERNIE Bot)是国内首批商业化大模型。飞桨(PaddlePaddle)是国内主要深度学习框架。' },
+  { id:'alibaba_ai', name:'阿里/通义', cat:'company', size:2,
+    granny:'阿里巴巴做的AI，通义千问特别擅长中文，还开源了很多模型。',
+    meme:'🛒 阿里：卖货之余顺便做了个世界级大模型',
+    tech:'阿里云通义系列包括通义千问(Qwen)、通义万象(多模态)、通义听悟(语音)等，Qwen系列开源模型在中英文任务上表现优异，ModelScope平台是国内最大的模型社区。' },
+  { id:'huawei_ai',  name:'华为/盘古', cat:'company', size:1,
+    granny:'华为做的大模型，主要用于工业和企业场景，特别稳健。',
+    meme:'🔧 华为：不卷消费者，专攻企业市场',
+    tech:'华为盘古大模型专注垂直行业(气象/矿山/政务)，盘古气象模型在天气预报精度上超越传统数值模型。昇腾AI芯片是华为应对GPU限制的自研算力，昇思MindSpore是配套框架。' },
+
+  // ── 前沿概念 ──
+  { id:'emergence',  name:'涌现',      cat:'concept', size:3,
+    granny:'模型变大到一定程度，突然就会了以前完全不会的技能，就像量变引起质变。',
+    meme:'🌊 涌现：AI突然开窍了，但没人知道为什么',
+    tech:'涌现(Emergence)指LLM在达到某参数规模阈值后突然获得新能力(算术/CoT/多步推理)，在小模型上完全不存在。Wei等人(2022)系统记录了涌现现象，引发了对Scaling Law的重新认识。' },
+  { id:'alignment',  name:'对齐',      cat:'concept', size:3,
+    granny:'让AI的目标和价值观跟人类一致，不会做出伤害人类的事情。',
+    meme:'🎯 对齐：教AI做好人，比教人做好人还难',
+    tech:'AI对齐研究如何使AI系统的目标、价值观和行为与人类意图一致。包括价值对齐(Constitutional AI)、目标对齐(RLHF)和能力对齐(可解释性)。Anthropic/DeepMind/OpenAI均设有专门对齐团队。' },
+  { id:'hallucination',name:'幻觉',    cat:'concept', size:3,
+    granny:'AI一本正经地说了一堆假话，还说得特别有把握。',
+    meme:'👻 幻觉：AI最自信的时候，往往是它最不靠谱的时候',
+    tech:'LLM幻觉指生成事实错误但语言流畅的内容，分为内在幻觉(与输入矛盾)和外在幻觉(无法验证)。成因包括训练数据噪声、语言建模目标与事实性的不一致。RAG/RLHF/CoT可部分缓解。' },
+  { id:'jailbreak',  name:'越狱',      cat:'concept', size:2,
+    granny:'用特殊的说法绕过AI的安全限制，让它说出本来不该说的话。',
+    meme:'🔓 越狱：用创意绕过AI的道德底线，安全研究员的日常',
+    tech:'越狱攻击通过精心设计的提示绕过LLM的安全对齐，包括角色扮演、多语言混淆、提示注入等技术。红队测试和对抗训练是主要防御手段，是AI安全研究的重要课题。' },
+  { id:'prompt_injection',name:'提示注入',cat:'concept', size:2,
+    granny:'黑客把恶意指令藏在普通文字里，骗AI去执行坏命令。',
+    meme:'💉 提示注入：AI界的SQL注入，但更难防',
+    tech:'提示注入攻击将恶意指令嵌入用户输入或外部数据，劫持LLM行为。直接注入针对用户输入，间接注入通过检索文档/网页传递。在Agent系统中危险性极高，是LLM安全的核心挑战。' },
+  { id:'context_window',name:'上下文窗口',cat:'concept', size:2,
+    granny:'AI一次能记住多少内容，就像短期记忆的容量。',
+    meme:'🪟 上下文窗口：AI的工作记忆，越大越贵',
+    tech:'上下文窗口(Context Window)决定LLM单次处理的最大token数，GPT-4: 128K，Claude 3: 200K，Gemini 1.5: 1M。长上下文带来注意力稀释和推理成本O(n²)挑战，KV Cache优化是关键。' },
+  { id:'agi',        name:'AGI',        cat:'concept', size:3,
+    granny:'通用人工智能，能像人一样学习和解决各种问题的AI，是AI研究的终极目标。',
+    meme:'🤖 AGI：AI界的月亮，永远在路上，永远快到了',
+    tech:'通用人工智能(AGI)指在所有认知任务上达到或超越人类水平的AI系统。OpenAI定义为"能完成大多数经济价值任务"，Anthropic更注重安全性。当前LLM在推理/规划/持续学习上仍有差距。' },
+  { id:'reasoning',  name:'推理/Reasoning',cat:'concept', size:3,
+    granny:'让AI不只是背答案，而是真正理解问题、一步步推导出答案。',
+    meme:'🧩 推理：AI开始思考了，但账单也开始暴涨了',
+    tech:'推理模型通过测试时计算扩展(Test-Time Compute)生成长思维链，在数学/代码/科学推理上大幅超越标准LLM。o1/o3/R1/QwQ代表了这一范式，核心技术是MCTS+RL+长CoT训练。' },
+  { id:'multimodal', name:'多模态',    cat:'concept', size:2,
+    granny:'AI能同时理解文字、图片、声音、视频，就像人用五感感知世界。',
+    meme:'👁️👂🗣️ 多模态：AI终于不是文盲了',
+    tech:'多模态LLM通过视觉编码器(CLIP/ViT)将图像映射到语言空间，实现图文理解和生成。GPT-4V/Claude 3/Gemini支持图像输入，GPT-4o实现实时语音交互，Sora/Kling实现文生视频。' },
+  { id:'interpretability',name:'可解释性',cat:'concept', size:2,
+    granny:'弄清楚AI为什么会这么想、这么说，打开AI的黑盒子。',
+    meme:'🔬 可解释性：AI的心理咨询，但咨询的是电路',
+    tech:'可解释性(Interpretability/XAI)研究LLM内部表示和计算机制，包括注意力分析、探针分类器、激活修补(Activation Patching)和机制可解释性(Mechanistic Interpretability)。Anthropic的特征稀疏自编码器研究是前沿方向。' },
+  // ── 更多架构/模型 ──
+  { id:'bert',      name:'BERT',       cat:'arch', size:2,
+    granny:'Google做的双向阅读机器，同时看前后文，理解能力超强。',
+    meme:'📖 BERT：我从两个方向读，所以比你理解得深',
+    tech:'BERT(双向编码器表示Transformer)使用掩码语言建模(MLM)和下一句预测(NSP)预训练，编码器架构使其擅长理解任务(分类/NER/QA)。RoBERTa/ALBERT是改进版，已被LLM超越但仍用于嵌入。' },
+  { id:'gpt2',      name:'GPT-2/GPT-3', cat:'arch', size:1,
+    granny:'ChatGPT的前辈，GPT-2发布时OpenAI因为太危险而不敢公开。',
+    meme:'😱 GPT-2：OpenAI：这太危险了不能发布。六个月后：好吧全发了',
+    tech:'GPT-2(1.5B)展示了自回归语言模型的文本生成能力，GPT-3(175B)通过Few-shot提示实现了跨任务泛化，开创了"预训练+提示"范式，是现代LLM的直接先驱。' },
+  { id:'sam',       name:'SAM/视觉模型',cat:'arch', size:1,
+    granny:'Meta做的图像分割模型，点一下就能把图里任何东西圈出来。',
+    meme:'✂️ SAM：点哪切哪，比PS还好用',
+    tech:'Segment Anything Model(SAM)是Meta的通用图像分割基础模型，支持点/框/文本提示，在1B+掩码数据上训练。SAM 2扩展到视频分割，代表了视觉基础模型的新范式。' },
+  { id:'clip',      name:'CLIP',       cat:'arch', size:2,
+    granny:'OpenAI做的图文配对模型，能理解图片和文字之间的关系。',
+    meme:'🖼️📝 CLIP：图文CP，互相理解',
+    tech:'CLIP(对比语言-图像预训练)通过对比学习对齐图像和文本的嵌入空间，在4亿图文对上训练，实现零样本图像分类。是多模态LLM的视觉编码器标配，也是扩散模型的条件编码器。' },
+  { id:'whisper',   name:'Whisper',    cat:'arch', size:1,
+    granny:'OpenAI做的语音识别模型，能听懂各种语言和口音。',
+    meme:'🎤 Whisper：听力满分，但不会说话',
+    tech:'Whisper是OpenAI的多语言语音识别模型，在68万小时多语言音频上训练，支持99种语言的转录和翻译。Encoder-Decoder架构，Large-v3在大多数语言上达到人类水平。' },
+  // ── 更多技术 ──
+  { id:'adapter',   name:'Adapter/PEFT',cat:'tech', size:1,
+    granny:'在模型里插入小模块，只训练这些小模块，不动原来的大模型。',
+    meme:'🔧 Adapter：给模型加个插件，不用重装系统',
+    tech:'参数高效微调(PEFT)方法包括Adapter(插入小型瓶颈层)、Prefix Tuning(优化前缀向量)、Prompt Tuning(软提示)等，可训练参数<1%。HuggingFace PEFT库统一了这些方法。' },
+  { id:'speculative',name:'投机采样',  cat:'tech', size:1,
+    granny:'用小模型先猜几个词，大模型快速验证，这样整体速度更快。',
+    meme:'🎲 投机采样：小模型打草稿，大模型签字',
+    tech:'投机解码(Speculative Decoding)用小草稿模型快速生成多个候选token，大目标模型并行验证，接受则保留，拒绝则重采样。在保持输出分布不变的前提下实现2-3x推理加速。' },
+  { id:'vllm',      name:'vLLM/推理引擎',cat:'tech', size:2,
+    granny:'让大模型跑得更快的专用引擎，能同时服务更多用户。',
+    meme:'🚀 vLLM：模型的涡轮增压',
+    tech:'vLLM通过PagedAttention(虚拟内存管理KV Cache)实现高吞吐量LLM推理，吞吐量比HuggingFace Transformers提升24x。连续批处理、张量并行和前缀缓存是核心优化技术。' },
+  { id:'benchmark',  name:'评测基准',   cat:'tech', size:1,
+    granny:'考试题库，用来测AI有多聪明，分数越高越厉害。',
+    meme:'📊 MMLU：AI的高考，但出题人是研究生',
+    tech:'LLM评测基准包括：MMLU(多学科知识)、HumanEval(代码)、GSM8K(数学推理)、HELM(综合)、MT-Bench(对话)、GPQA(博士级)。榜单刷分现象严重，需结合实际使用评估。' },
+  { id:'icl',        name:'上下文学习ICL',cat:'concept', size:2,
+    granny:'不用重新训练，只要在问题前面给几个例子，AI就能学会新技能。',
+    meme:'📋 ICL：AI的现场学习，看几眼就会了',
+    tech:'上下文学习(In-Context Learning)是LLM的涌现能力，通过在提示中提供少量示例(Few-shot)，无需更新参数即可适应新任务。GPT-3的核心能力，原理仍有争议(隐式贝叶斯推断vs梯度下降类比)。' },
+  { id:'instruct',   name:'指令微调',   cat:'train', size:2,
+    granny:'用大量"问题-回答"对话来训练AI，让它学会按指令办事。',
+    meme:'📋 指令微调：教AI看懂甲方需求',
+    tech:'指令微调(Instruction Tuning)在多样化指令-回答对上进行SFT，提升LLM的指令跟随能力和泛化性。FLAN/InstructGPT/Alpaca开创了该范式，数据质量和多样性是关键。' },
+  { id:'synthetic',  name:'合成数据',   cat:'train', size:2,
+    granny:'用AI生成训练数据来训练AI，让AI自己教自己。',
+    meme:'🤯 AI生成数据训练AI：套娃到极致',
+    tech:'合成数据通过LLM生成高质量训练样本，解决标注数据稀缺问题。Phi系列(微软)主要用合成数据训练，Alpaca/WizardLM用GPT-4生成指令数据。质量过滤是防止"模型崩溃"的关键。' },
+  { id:'longcontext', name:'长上下文',  cat:'concept', size:2,
+    granny:'让AI能记住更长的对话和文档，不会"忘记"之前说过的内容。',
+    meme:'📜 长上下文：AI的记忆容量升级，但价格也升级了',
+    tech:'长上下文技术通过RoPE外推(YaRN/LongRoPE)、稀疏注意力、滑动窗口等扩展上下文窗口。Gemini 1.5 Pro支持1M tokens，Claude 3支持200K，实现"大海捞针"式文档理解。' },
+  { id:'agentic',    name:'Agentic AI', cat:'concept', size:2,
+    granny:'AI不只是回答问题，而是主动规划、执行任务，像一个真正的助手。',
+    meme:'🤖 Agentic AI：AI终于从话痨进化成行动派',
+    tech:'Agentic AI范式中LLM作为核心推理引擎，通过工具使用、记忆管理和多步规划完成复杂任务。关键能力：任务分解、错误恢复、并行执行。2024-2025年最热门的AI应用方向。' },
+  { id:'sparse_attn',name:'稀疏注意力', cat:'tech', size:1,
+    granny:'不是所有词都互相关注，只关注最重要的几个，节省计算。',
+    meme:'👀 稀疏注意力：有选择地关注，就像开会只听重点',
+    tech:'稀疏注意力通过限制每个token只关注局部窗口或Top-K重要位置，将注意力复杂度从O(n²)降至O(n√n)或O(n log n)。Longformer/BigBird/Sliding Window Attention是代表实现。' },
+  { id:'deepspeed',  name:'DeepSpeed',  cat:'tech', size:1,
+    granny:'让训练大模型变得更省钱的工具，能在普通服务器上训练超大模型。',
+    meme:'⚡ DeepSpeed：穷人的大模型训练神器',
+    tech:'DeepSpeed(微软)通过ZeRO(零冗余优化器)将模型参数、梯度、优化器状态分散到多GPU/多节点，实现万亿参数模型训练。Megatron-LM提供张量并行，两者结合是大规模LLM训练标配。' },
+  { id:'watermark',  name:'AI水印',     cat:'concept', size:1,
+    granny:'在AI生成的文字里偷偷留下标记，让人能识别出是AI写的。',
+    meme:'🔍 水印：AI的版权声明，但肉眼看不出来',
+    tech:'LLM水印通过在生成时偏向特定token子集嵌入统计信号，可在不影响质量的前提下检测AI生成内容。是AI内容溯源和学术诚信的重要技术，但对抗攻击仍是挑战。' },
+  { id:'openrouter', name:'API/推理服务',cat:'app', size:1,
+    granny:'像点外卖一样调用各种AI模型，不用自己买服务器。',
+    meme:'🍔 API：AI的外卖平台，按量计费',
+    tech:'LLM API服务(OpenAI API/Anthropic API/OpenRouter/Together AI)提供标准化REST接口，支持流式输出、函数调用、批量推理。OpenRouter聚合多家模型，实现统一接口和成本优化。' },
+  { id:'constit_ai', name:'宪法AI',     cat:'concept', size:2,
+    granny:'给AI一套行为准则，让它按照这些原则自我批评和改进。',
+    meme:'📜 宪法AI：AI的道德法典，自我约束版',
+    tech:'Constitutional AI(Anthropic)通过让模型根据一组原则(宪法)进行自我批评和修订，减少对人工标注的依赖。RLAIF(AI反馈强化学习)用AI代替人类评估者，可扩展性更强。' },
+  { id:'memory',     name:'记忆/Memory', cat:'app', size:2,
+    granny:'让AI记住你的偏好和之前的对话，下次不用重新解释。',
+    meme:'🧠 Memory：AI终于不是金鱼了',
+    tech:'Agent记忆系统包括：工作记忆(上下文窗口)、情节记忆(对话历史向量化存储)、语义记忆(知识库)、程序记忆(技能/工具)。MemGPT/Mem0是代表性实现，解决了长期对话的状态维护问题。' },
+
+];
+
+// Build adjacency for connections
+const EDGES = [
+  ['transformer','attention'],['transformer','nn'],['transformer','positional'],
+  ['transformer','gpt'],['transformer','claude'],['transformer','gemini'],
+  ['transformer','llama'],['transformer','deepseek'],['transformer','bert'],
+  ['gpt','openai'],['claude','anthropic'],['gemini','google_ai'],
+  ['llama','meta_ai'],['deepseek','reasoning'],
+  ['nn','bp'],['bp','gd'],['gd','loss'],
+  ['attention','flash_attn'],['attention','kvcache'],
+  ['rlhf','ppo'],['rlhf','sft'],['rlhf','dpo'],['rlhf','alignment'],
+  ['lora','finetune'],['qlora','lora'],['qlora','quantize'],
+  ['rag','vectordb'],['rag','embedding'],['rag','agentic_rag'],
+  ['rag','graphrag'],
+  ['agent','react'],['agent','cot'],['agent','function_call'],
+  ['agent','langchain'],['agent','multi_agent'],
+  ['cot','tot'],['cot','reasoning'],
+  ['moe','mistral'],['moe','deepseek'],
+  ['diffusion','vae'],['gan','vae'],
+  ['grpo','deepseek'],['grpo','rl'],['rl','rlhf'],
+  ['scaling','emergence'],['emergence','agi'],
+  ['mcp','agent'],['mcp','anthropic'],
+  ['hallucination','rag'],['hallucination','alignment'],
+  ['jailbreak','alignment'],['prompt_injection','agent'],
+  ['embedding','vectordb'],['embedding','rag'],
+  ['rope','positional'],['rope','llama'],
+  ['kvcache','flash_attn'],
+  ['qwen','alibaba_ai'],['baidu_ai','alignment'],
+  ['langchain','llamaindex'],['langchain','agent'],
+  ['hermes','agent'],['hermes','function_call'],
+  ['autogpt','agent'],
+  ['sft','finetune'],['distill','quantize'],
+  ['context_window','kvcache'],['context_window','flash_attn'],
+  ['multimodal','gemini'],['multimodal','claude'],
+  ['interpretability','alignment'],
+  ['ssm','rnn'],['lstm','rnn'],
+  ['cnn','nn'],['gan','nn'],['vae','nn'],
+  ['pretrain','scaling'],['pretrain','finetune'],
+  ['norm','transformer'],['activation','nn'],
+  ['tokenize','embedding'],['overfit','finetune'],
+  ['unsupervised','pretrain'],['supervised','sft'],
+
+  // New node edges
+  ['bert','transformer'],['bert','embedding'],['bert','openai'],
+  ['gpt2','gpt'],['gpt2','openai'],
+  ['sam','meta_ai'],['sam','multimodal'],
+  ['clip','multimodal'],['clip','diffusion'],['clip','openai'],
+  ['whisper','multimodal'],['whisper','openai'],
+  ['adapter','finetune'],['adapter','lora'],
+  ['speculative','quantize'],['speculative','vllm'],
+  ['vllm','kvcache'],['vllm','flash_attn'],
+  ['benchmark','scaling'],['benchmark','reasoning'],
+  ['icl','gpt'],['icl','emergence'],['icl','cot'],
+  ['instruct','sft'],['instruct','rlhf'],
+  ['synthetic','sft'],['synthetic','distill'],
+  ['longcontext','context_window'],['longcontext','rope'],
+  ['agentic','agent'],['agentic','mcp'],
+  ['sparse_attn','flash_attn'],['sparse_attn','longcontext'],
+  ['deepspeed','pretrain'],
+  ['watermark','alignment'],['watermark','hallucination'],
+  ['openrouter','agent'],['openrouter','function_call'],
+  ['constit_ai','alignment'],['constit_ai','anthropic'],['constit_ai','rlhf'],
+  ['memory','agent'],['memory','rag'],['memory','longcontext'],
+];
+
+// ═══════════════════════════════════════
+//  CANVAS SETUP
+// ═══════════════════════════════════════
+const bgCanvas = document.getElementById('bg');
+const mainCanvas = document.getElementById('main');
+const bgCtx = bgCanvas.getContext('2d');
+const ctx = mainCanvas.getContext('2d');
+
+// 离屏缓存 canvas（背景静态部分）
+const offCanvas = document.createElement('canvas');
+const offCtx = offCanvas.getContext('2d');
+let bgDirty = true; // 标记背景是否需要重绘
+
+let W, H, cx, cy, R;
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  bgCanvas.width = mainCanvas.width = W;
+  bgCanvas.height = mainCanvas.height = H;
+  offCanvas.width = W; offCanvas.height = H;
+  cx = W / 2; cy = H / 2;
+  R = Math.min(W, H) * 0.36;
+  bgDirty = true;
+}
+resize();
+window.addEventListener('resize', () => { resize(); initStars(); buildNodes(); });
+
+// ═══════════════════════════════════════
+//  BACKGROUND: GALAXY
+// ═══════════════════════════════════════
+let stars = [], meteors = [];
+// 预生成螺旋臂粒子（固定位置，不每帧random）
+let spiralPts = [];
+function buildSpiralPts() {
+  spiralPts = [];
+  for (let arm = 0; arm < 3; arm++) {
+    for (let i = 0; i < 80; i++) {
+      const t2 = i / 80;
+      const angle = (arm / 3) * Math.PI * 2 + t2 * Math.PI * 2.5;
+      const r = t2 * 0.45; // normalized, multiply by screen size later
+      spiralPts.push({
+        arm, t2,
+        cosA: Math.cos(angle), sinA: Math.sin(angle),
+        r, alpha: (1 - t2) * 0.15,
+        dotR: Math.random() * 2 + 0.5,
+      });
+    }
+  }
+}
+buildSpiralPts();
+
+function initStars() {
+  stars = [];
+  // 降低密度：1200→2000，减少星星数量
+  const count = Math.floor(W * H / 2000);
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.5 + 0.2,
+      alpha: Math.random() * 0.8 + 0.2,
+      twinkleSpeed: Math.random() * 0.02 + 0.005,
+      twinklePhase: Math.random() * Math.PI * 2,
+      color: ['#ffffff','#ffe8d6','#d6e8ff','#ffd6ff'][Math.floor(Math.random()*4)]
+    });
+  }
+  bgDirty = true;
+}
+initStars();
+
+function spawnMeteor() {
+  if (meteors.length < 3 && Math.random() < 0.003) {
+    const startX = Math.random() * W;
+    meteors.push({
+      x: startX, y: -10,
+      vx: (Math.random() - 0.3) * 4 + 2,
+      vy: Math.random() * 3 + 2,
+      len: Math.random() * 120 + 60,
+      alpha: 1, life: 1
+    });
+  }
+}
+
+let galaxyAngle = 0;
+let lastBgT = -9999; // 上次绘制静态背景的时间
+
+function drawStaticBg() {
+  // 只绘制不动的部分：底色 + 星云 + 螺旋臂 → 缓存到 offCanvas
+  offCtx.fillStyle = '#000005';
+  offCtx.fillRect(0, 0, W, H);
+
+  // Galaxy nebula glow
+  const grad = offCtx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.7);
+  grad.addColorStop(0, 'rgba(20,10,60,0.5)');
+  grad.addColorStop(0.3, 'rgba(10,5,40,0.3)');
+  grad.addColorStop(0.6, 'rgba(5,0,20,0.2)');
+  grad.addColorStop(1, 'rgba(0,0,5,0)');
+  offCtx.fillStyle = grad;
+  offCtx.fillRect(0, 0, W, H);
+
+  // Spiral arms（用预生成固定点，无 random）
+  const screenR = Math.min(W, H);
+  offCtx.save();
+  offCtx.translate(cx, cy);
+  spiralPts.forEach(pt => {
+    const angle = (pt.arm / 3) * Math.PI * 2 + galaxyAngle + pt.t2 * Math.PI * 2.5;
+    const px = Math.cos(angle) * pt.r * screenR;
+    const py = Math.sin(angle) * pt.r * screenR * 0.4;
+    offCtx.beginPath();
+    offCtx.arc(px, py, pt.dotR, 0, Math.PI * 2);
+    offCtx.fillStyle = `rgba(180,140,255,${pt.alpha})`;
+    offCtx.fill();
+  });
+  offCtx.restore();
+
+  // Stars（静态，不闪烁，闪烁在主循环里用 globalAlpha 叠加）
+  stars.forEach(s => {
+    offCtx.beginPath();
+    offCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    offCtx.globalAlpha = s.alpha;
+    offCtx.fillStyle = s.color;
+    offCtx.fill();
+  });
+  offCtx.globalAlpha = 1;
+  bgDirty = false;
+}
+
+function drawBackground(t) {
+  // 静态背景：每3秒或dirty时才重绘螺旋臂（星云很慢，视觉无感知）
+  const needRebuild = bgDirty || (t - lastBgT > 3000);
+  if (needRebuild) {
+    galaxyAngle += 0.0001 * (t - lastBgT);
+    lastBgT = t;
+    drawStaticBg();
+  }
+
+  // 把缓存贴到 bgCanvas
+  bgCtx.drawImage(offCanvas, 0, 0);
+
+  // 星星闪烁叠加（只改 alpha，不重绘底色，非常轻量）
+  const tSec = t * 0.001;
+  // 只让1/3的星星每帧闪烁（轮换批次），降低绘制量
+  const batchSize = Math.ceil(stars.length / 3);
+  const batchStart = Math.floor(tSec * 20) % 3 * batchSize;
+  for (let i = batchStart; i < Math.min(batchStart + batchSize, stars.length); i++) {
+    const s = stars[i];
+    const tw = Math.sin(tSec * s.twinkleSpeed * 60 + s.twinklePhase);
+    const a = s.alpha * (0.6 + 0.4 * tw);
+    bgCtx.beginPath();
+    bgCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    bgCtx.globalAlpha = a;
+    bgCtx.fillStyle = s.color;
+    bgCtx.fill();
+  }
+  bgCtx.globalAlpha = 1;
+
+  // Meteors（动态，每帧都画）
+  spawnMeteor();
+  meteors = meteors.filter(m => m.alpha > 0.01);
+  meteors.forEach(m => {
+    m.x += m.vx; m.y += m.vy; m.alpha -= 0.015;
+    const spd = Math.sqrt(m.vx*m.vx + m.vy*m.vy);
+    const tailX = m.x - m.vx * (m.len / spd);
+    const tailY = m.y - m.vy * (m.len / spd);
+    const mg = bgCtx.createLinearGradient(tailX, tailY, m.x, m.y);
+    mg.addColorStop(0, 'rgba(255,255,255,0)');
+    mg.addColorStop(1, `rgba(255,255,255,${m.alpha})`);
+    bgCtx.beginPath();
+    bgCtx.moveTo(tailX, tailY);
+    bgCtx.lineTo(m.x, m.y);
+    bgCtx.strokeStyle = mg;
+    bgCtx.lineWidth = 1.5;
+    bgCtx.stroke();
+  });
+}
+
+// ═══════════════════════════════════════
+//  3D SPHERE NODES
+// ═══════════════════════════════════════
+let nodes3d = [];
+let rotX = 0.3, rotY = 0;
+let targetRotX = 0.3, targetRotY = 0;
+let autoRotate = true;
+
+// Fibonacci sphere distribution
+function fibonacciSphere(n) {
+  const pts = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / (n - 1)) * 2;
+    const radius = Math.sqrt(1 - y * y);
+    const theta = golden * i;
+    pts.push({ x: Math.cos(theta) * radius, y, z: Math.sin(theta) * radius });
+  }
+  return pts;
+}
+
+let nodeMap = new Map(); // id → node，避免每帧 find
+
+function buildNodes() {
+  const positions = fibonacciSphere(NODES_DATA.length);
+  nodes3d = NODES_DATA.map((d, i) => ({
+    ...d,
+    sx: positions[i].x,
+    sy: positions[i].y,
+    sz: positions[i].z,
+    px: 0, py: 0, pz: 0, depth: 0,
+    pulsePhase: Math.random() * Math.PI * 2,
+    particleT: Math.random(),
+  }));
+  nodeMap.clear();
+  nodes3d.forEach(n => nodeMap.set(n.id, n));
+}
+buildNodes();
+
+function rotatePoint(x, y, z, rx, ry) {
+  // Rotate around Y axis
+  let x1 = x * Math.cos(ry) + z * Math.sin(ry);
+  let z1 = -x * Math.sin(ry) + z * Math.cos(ry);
+  // Rotate around X axis
+  let y2 = y * Math.cos(rx) - z1 * Math.sin(rx);
+  let z2 = y * Math.sin(rx) + z1 * Math.cos(rx);
+  return { x: x1, y: y2, z: z2 };
+}
+
+function projectNode(n) {
+  const p = rotatePoint(n.sx, n.sy, n.sz, rotX, rotY);
+  n.pz = p.z;
+  const fov = 2.5;
+  const scale = fov / (fov + 1 - p.z);
+  n.px = cx + p.x * R * scale;
+  n.py = cy + p.y * R * scale;
+  n.depth = (p.z + 1) / 2; // 0=far, 1=near
+  n.scale = scale;
+}
+
+// ═══════════════════════════════════════
+//  PARTICLES ON EDGES
+// ═══════════════════════════════════════
+const particles = [];
+const MAX_PARTICLES = 200;
+
+function spawnEdgeParticles(fromId, toId) {
+  if (particles.length > MAX_PARTICLES) return;
+  if (!nodeMap.has(fromId) || !nodeMap.has(toId)) return;
+  for (let i = 0; i < 3; i++) {
+    particles.push({
+      fromId, toId,
+      t: Math.random(),
+      speed: Math.random() * 0.008 + 0.004,
+      dead: false,
+      size: Math.random() * 2 + 1,
+    });
+  }
+}
+
+// ═══════════════════════════════════════
+//  SELECTED NODE & PANEL
+// ═══════════════════════════════════════
+let selectedId = null;
+let hoveredId = null;
+
+function openPanel(node) {
+  selectedId = node.id;
+  selectedColor = CATEGORIES[node.cat]?.color || '#ffffff';
+  document.getElementById('panel-name').textContent = node.name;
+  const cat = CATEGORIES[node.cat];
+  document.getElementById('panel-category').textContent = cat.label;
+  document.getElementById('panel-category').style.color = cat.color;
+
+  const body = document.getElementById('panel-body');
+  body.innerHTML = `
+    <div class="panel-section">
+      <div class="panel-text">👵 ${node.granny}</div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-text">${node.meme}</div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-text">⚙️ ${node.tech}</div>
+    </div>
+  `;
+
+  // Related chips
+  const related = EDGES
+    .filter(e => e[0] === node.id || e[1] === node.id)
+    .map(e => e[0] === node.id ? e[1] : e[0])
+    .slice(0, 10);
+  const chips = document.getElementById('panel-chips');
+  chips.innerHTML = related.map(id => {
+    const rn = NODES_DATA.find(n => n.id === id);
+    if (!rn) return '';
+    const rc = CATEGORIES[rn.cat];
+    return `<span class="chip" onclick="focusNode('${id}')" style="border-color:${rc.color}40;color:${rc.color}">${rn.name}</span>`;
+  }).join('');
+
+  document.getElementById('panel').classList.add('open');
+
+  // Spawn particles on connected edges
+  EDGES.forEach(e => {
+    if (e[0] === node.id || e[1] === node.id) {
+      for (let i = 0; i < 5; i++) spawnEdgeParticles(e[0], e[1]);
+    }
+  });
+
+  // Auto-rotate to bring node to front
+  const n = nodes3d.find(nd => nd.id === node.id);
+  if (n) {
+    // Calculate target rotation to bring node to front
+    const p = rotatePoint(n.sx, n.sy, n.sz, rotX, rotY);
+    targetRotY = rotY - Math.atan2(p.x, p.z);
+    targetRotX = rotX - Math.atan2(p.y, Math.sqrt(p.x*p.x + p.z*p.z));
+    autoRotate = false;
+  }
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  selectedId = null;
+  autoRotate = true;
+}
+
+window.focusNode = function(id) {
+  const node = NODES_DATA.find(n => n.id === id);
+  if (node) openPanel(node);
+};
+
+document.getElementById('panel-close').addEventListener('click', closePanel);
+
+// ═══════════════════════════════════════
+//  DRAW
+// ═══════════════════════════════════════
+// 预计算选中节点的颜色，避免循环内重复查找
+let selectedColor = '#ffffff';
+
+function drawEdges() {
+  // 先画普通边（批量 path，减少 stroke 调用次数）
+  ctx.beginPath();
+  ctx.lineWidth = 0.5;
+  EDGES.forEach(([aId, bId]) => {
+    if (selectedId && (aId === selectedId || bId === selectedId)) return; // 高亮边单独画
+    const a = nodeMap.get(aId), b = nodeMap.get(bId);
+    if (!a || !b) return;
+    // 两端都在背面则跳过
+    if (a.depth < 0.1 && b.depth < 0.1) return;
+    const avgDepth = (a.depth + b.depth) / 2;
+    ctx.moveTo(a.px, a.py);
+    ctx.lineTo(b.px, b.py);
+  });
+  ctx.strokeStyle = 'rgba(100,120,200,0.18)';
+  ctx.stroke();
+
+  // 再画高亮边
+  if (selectedId) {
+    ctx.beginPath();
+    ctx.lineWidth = 1.5;
+    EDGES.forEach(([aId, bId]) => {
+      if (aId !== selectedId && bId !== selectedId) return;
+      const a = nodeMap.get(aId), b = nodeMap.get(bId);
+      if (!a || !b) return;
+      ctx.moveTo(a.px, a.py);
+      ctx.lineTo(b.px, b.py);
+    });
+    ctx.strokeStyle = selectedColor + '80';
+    ctx.stroke();
+  }
+}
+
+function drawParticles() {
+  // 用标记代替 splice，避免 O(n²) 的数组重排
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    const from = nodeMap.get(p.fromId);
+    const to = nodeMap.get(p.toId);
+    if (!from || !to) { p.dead = true; continue; }
+
+    p.t += p.speed;
+    if (p.t > 1) p.t -= 1;
+
+    const x = from.px + (to.px - from.px) * p.t;
+    const y = from.py + (to.py - from.py) * p.t;
+    const depth = from.depth + (to.depth - from.depth) * p.t;
+    if (depth < 0.05) continue; // 背面不画
+
+    const fromCat = CATEGORIES[from.cat];
+    ctx.beginPath();
+    ctx.arc(x, y, p.size * depth, 0, Math.PI * 2);
+    ctx.fillStyle = fromCat.color + 'cc';
+    ctx.fill();
+  }
+  // 统一清理死亡粒子
+  if (particles.some(p => p.dead)) {
+    particles.splice(0, particles.length, ...particles.filter(p => !p.dead));
+  }
+}
+
+function drawNodes(t) {
+  // Sort by depth (far to near) — 用 sort 避免重建数组
+  nodes3d.sort((a, b) => a.depth - b.depth);
+  const tSec = t * 0.001;
+
+  nodes3d.forEach(n => {
+    const cat = CATEGORIES[n.cat];
+    const isSelected = n.id === selectedId;
+    const isHovered = n.id === hoveredId;
+
+    const baseSize = [0, 4, 7, 11][n.size];
+    const sz = baseSize * (0.5 + n.depth * 0.8) * n.scale;
+    const alpha = 0.3 + n.depth * 0.7;
+
+    // 背面极小节点直接跳过
+    if (sz < 1 && !isSelected && !isHovered) return;
+
+    // Glow（只对近处 + 选中 + hover 节点）
+    if (isSelected || isHovered || n.depth > 0.65) {
+      const pulse = Math.sin(tSec * 1.5 + n.pulsePhase) * 0.5 + 0.5;
+      const glowSize = sz * (isSelected ? 4 : 2.5) + pulse * sz * 0.5;
+      const grd = ctx.createRadialGradient(n.px, n.py, 0, n.px, n.py, glowSize);
+      const glowAlpha = (isSelected ? 0.6 : 0.3) * alpha;
+      grd.addColorStop(0, cat.glow.replace('0.4', String(glowAlpha.toFixed(2))));
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(n.px, n.py, glowSize, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+    }
+
+    // Node circle：近处用渐变，远处用纯色（省去 createRadialGradient 开销）
+    ctx.beginPath();
+    ctx.arc(n.px, n.py, sz, 0, Math.PI * 2);
+    ctx.globalAlpha = alpha;
+    if (n.depth > 0.4) {
+      const nodeGrd = ctx.createRadialGradient(n.px - sz*0.3, n.py - sz*0.3, 0, n.px, n.py, sz);
+      nodeGrd.addColorStop(0, cat.color + 'ff');
+      nodeGrd.addColorStop(0.5, cat.color + 'cc');
+      nodeGrd.addColorStop(1, cat.color + '44');
+      ctx.fillStyle = nodeGrd;
+    } else {
+      ctx.fillStyle = cat.color + '66'; // 远处纯色，更快
+    }
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Border（仅选中）
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(n.px, n.py, sz + 3, 0, Math.PI * 2);
+      ctx.strokeStyle = cat.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Label：减少文字绘制量，背面节点不画
+    const showLabel = n.depth > 0.45 || isSelected || isHovered || n.size === 3;
+    if (showLabel) {
+      const fontSize = Math.max(9, Math.min(14, sz * 1.2 + 6));
+      ctx.font = `${isSelected ? 'bold ' : ''}${fontSize}px "Noto Sans SC", sans-serif`;
+      ctx.textAlign = 'center';
+      const labelY = n.py + sz + fontSize + 2;
+      const labelAlpha = Math.min(1, (n.depth - 0.3) * 2) * alpha;
+      ctx.globalAlpha = labelAlpha;
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillText(n.name, n.px + 1, labelY + 1);
+      ctx.fillStyle = isSelected ? cat.color : '#ffffff';
+      ctx.fillText(n.name, n.px, labelY);
+      ctx.globalAlpha = 1;
+    }
+  });
+}
+
+// ═══════════════════════════════════════
+//  MOUSE INTERACTION
+// ═══════════════════════════════════════
+let isDragging = false, lastMX = 0, lastMY = 0;
+let velX = 0, velY = 0;
+
+mainCanvas.addEventListener('mousedown', e => {
+  isDragging = true; lastMX = e.clientX; lastMY = e.clientY;
+  velX = velY = 0; autoRotate = false;
+});
+window.addEventListener('mousemove', e => {
+  if (isDragging) {
+    const dx = e.clientX - lastMX;
+    const dy = e.clientY - lastMY;
+    velX = dy * 0.005; velY = dx * 0.005;
+    targetRotX += dy * 0.005;
+    targetRotY += dx * 0.005;
+    lastMX = e.clientX; lastMY = e.clientY;
+  } else {
+    // Hover detection
+    const mx = e.clientX, my = e.clientY;
+    hoveredId = null;
+    for (const n of nodes3d) {
+      const dist = Math.hypot(n.px - mx, n.py - my);
+      const sz = [0,4,7,11][n.size] * (0.5 + n.depth * 0.8) * n.scale;
+      if (dist < sz + 8) { hoveredId = n.id; break; }
+    }
+    mainCanvas.style.cursor = hoveredId ? 'pointer' : 'grab';
+  }
+});
+window.addEventListener('mouseup', e => {
+  if (isDragging && Math.abs(e.clientX - lastMX) < 3 && Math.abs(e.clientY - lastMY) < 3) {
+    // Click
+    const mx = e.clientX, my = e.clientY;
+    for (const n of nodes3d) {
+      const dist = Math.hypot(n.px - mx, n.py - my);
+      const sz = [0,4,7,11][n.size] * (0.5 + n.depth * 0.8) * n.scale;
+      if (dist < sz + 8) { openPanel(n); break; }
+    }
+  }
+  isDragging = false;
+  if (!selectedId) autoRotate = true;
+});
+
+// Touch support
+mainCanvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  isDragging = true; lastMX = t.clientX; lastMY = t.clientY;
+  autoRotate = false;
+}, { passive: false });
+mainCanvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const dx = t.clientX - lastMX, dy = t.clientY - lastMY;
+  targetRotX += dy * 0.005;
+  targetRotY += dx * 0.005;
+  lastMX = t.clientX; lastMY = t.clientY;
+}, { passive: false });
+mainCanvas.addEventListener('touchend', () => { isDragging = false; });
+
+// Wheel zoom
+let zoom = 1;
+mainCanvas.addEventListener('wheel', e => {
+  zoom = Math.max(0.5, Math.min(2, zoom - e.deltaY * 0.001));
+  R = Math.min(W, H) * 0.36 * zoom;
+});
+
+// ═══════════════════════════════════════
+//  SEARCH
+// ═══════════════════════════════════════
+document.getElementById('search-input').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return;
+  const found = NODES_DATA.find(n =>
+    n.name.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)
+  );
+  if (found) {
+    openPanel(found);
+    e.target.style.borderColor = 'rgba(52,211,153,0.8)';
+  } else {
+    e.target.style.borderColor = 'rgba(255,110,110,0.8)';
+  }
+});
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    e.target.value = '';
+    e.target.style.borderColor = '';
+    closePanel();
+  }
+  e.stopPropagation();
+});
+
+// ═══════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════
+let lastT = 0;
+const TARGET_FPS = 60;
+const FRAME_MS = 1000 / TARGET_FPS;
+
+function loop(t) {
+  requestAnimationFrame(loop);
+
+  // 帧率限制：超过60fps时跳过，避免高刷屏浪费
+  const dt = t - lastT;
+  if (dt < FRAME_MS - 1) return;
+  lastT = t;
+
+  // Smooth rotation
+  if (autoRotate) targetRotY += 0.002;
+  rotX += (targetRotX - rotX) * 0.08;
+  rotY += (targetRotY - rotY) * 0.08;
+
+  // Project all nodes
+  nodes3d.forEach(n => projectNode(n));
+
+  // Background
+  drawBackground(t);
+
+  // Main canvas
+  ctx.clearRect(0, 0, W, H);
+
+  // Sphere wireframe hint
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(100,100,200,0.05)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  drawEdges();
+  drawParticles();
+  drawNodes(t);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
