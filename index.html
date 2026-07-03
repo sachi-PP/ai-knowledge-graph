@@ -594,8 +594,8 @@ function resize() {
   bgCanvas.width = mainCanvas.width = W;
   bgCanvas.height = mainCanvas.height = H;
   offCanvas.width = W; offCanvas.height = H;
-  cx = W / 2; cy = H * 0.62;
-  R = Math.min(W, H) * 0.36;
+  cx = W / 2; cy = H;
+  R = Math.min(W, H) * 0.52;
   bgDirty = true;
 }
 resize();
@@ -762,7 +762,7 @@ function fibonacciSphere(n) {
   const pts = [];
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < n; i++) {
-    const y = 1 - (i / (n - 1));  // 上半球 y∈[0,1]
+    const y = 1 - (i / (n - 1)) * 2;
     const radius = Math.sqrt(1 - y * y);
     const theta = golden * i;
     pts.push({ x: Math.cos(theta) * radius, y, z: Math.sin(theta) * radius });
@@ -801,7 +801,6 @@ function rotatePoint(x, y, z, rx, ry) {
 function projectNode(n) {
   const p = rotatePoint(n.sx, n.sy, n.sz, rotX, rotY);
   n.pz = p.z;
-  n.visible = p.y >= -0.04;  // 隐藏翻转到下半球的节点
   const fov = 2.5;
   const scale = fov / (fov + 1 - p.z);
   n.px = cx + p.x * R * scale;
@@ -918,7 +917,6 @@ function drawEdges() {
     const a = nodeMap.get(aId), b = nodeMap.get(bId);
     if (!a || !b) return;
     // 两端都在背面则跳过
-    if (!a.visible || !b.visible) return;
     if (a.depth < 0.1 && b.depth < 0.1) return;
     const avgDepth = (a.depth + b.depth) / 2;
     ctx.moveTo(a.px, a.py);
@@ -934,7 +932,7 @@ function drawEdges() {
     EDGES.forEach(([aId, bId]) => {
       if (aId !== selectedId && bId !== selectedId) return;
       const a = nodeMap.get(aId), b = nodeMap.get(bId);
-      if (!a || !b || !a.visible || !b.visible) return;
+      if (!a || !b) return;
       ctx.moveTo(a.px, a.py);
       ctx.lineTo(b.px, b.py);
     });
@@ -949,7 +947,7 @@ function drawParticles() {
     const p = particles[i];
     const from = nodeMap.get(p.fromId);
     const to = nodeMap.get(p.toId);
-    if (!from || !to || !from.visible || !to.visible) { p.dead = true; continue; }
+    if (!from || !to) { p.dead = true; continue; }
 
     p.t += p.speed;
     if (p.t > 1) p.t -= 1;
@@ -985,8 +983,6 @@ function drawNodes(t) {
     const sz = baseSize * (0.5 + n.depth * 0.8) * n.scale;
     const alpha = 0.3 + n.depth * 0.7;
 
-    // 下半球节点不显示
-    if (!n.visible) return;
     // 背面极小节点直接跳过
     if (sz < 1 && !isSelected && !isHovered) return;
 
@@ -1173,23 +1169,11 @@ function loop(t) {
   // Main canvas
   ctx.clearRect(0, 0, W, H);
 
-  // Hemisphere wireframe
-  // 上半弧
+  // Sphere wireframe（球心在底边，页面自然裁切出半球效果）
   ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI, true);
-  ctx.strokeStyle = 'rgba(100,120,255,0.1)';
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(100,100,200,0.07)';
   ctx.lineWidth = 1;
-  ctx.stroke();
-  // 平底线
-  ctx.beginPath();
-  ctx.moveTo(cx - R, cy);
-  ctx.lineTo(cx + R, cy);
-  ctx.strokeStyle = 'rgba(100,120,255,0.12)';
-  ctx.stroke();
-  // 底面椭圆（深度感）
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, R, R * 0.13, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(100,120,255,0.06)';
   ctx.stroke();
 
   drawEdges();
